@@ -22,6 +22,7 @@ import ssl
 import time
 import sys
 
+from cloudify import dispatch
 import pika
 from pika.exceptions import AMQPConnectionError
 
@@ -120,18 +121,22 @@ class AMQPTopicConsumer(object):
         self.channel.start_consuming()
 
     def _process(self, channel, method, properties, body):
+        with open('/tmp/bla', 'ab') as f:
+            f.write(body)
+            f.write('\n########\n')
+        parsed_body = json.loads(body)
+        logger.info(parsed_body)
         try:
-            with open('/tmp/bla', 'ab') as f:
-                f.write(body)
-                f.write('\n########\n')
-            parsed_body = json.loads(body)
-            logger.info(parsed_body)
-            result = {'ok': True, 'id': parsed_body['id']}
+            task = parsed_body['cloudify_task']
+            kwargs = task['kwargs']
+            rv = dispatch.dispatch(**kwargs)
+            result = {'ok': True, 'id': parsed_body['id'], 'result': rv}
         except Exception as e:
-            logger.warn('Failed message processing: {0}'.format(e))
+            logger.warn('Failed message processing: {0!r}'.format(e))
             logger.warn('Body: {0}\nType: {1}'.format(body, type(body)))
-            result = {'ok': False, 'error': str(e)}
+            result = {'ok': False, 'error': repr(e), 'id': parsed_body['id']}
         finally:
+            logger.info('response %r', result)
             self.channel.basic_publish(
                 self.result_exchange, '', json.dumps(result))
             self.channel.basic_ack(method.delivery_tag)
