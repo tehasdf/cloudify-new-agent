@@ -112,9 +112,9 @@ class AMQPTopicConsumer(object):
         #     durable=False,
         #     exclusive=False)
         # queue = result.method.queue
-        # self.channel.queue_bind(queue=queue,
-        #                         queue=queue,
-        #                         routing_key=routing_key)
+        self.channel.queue_bind(queue=queue,
+                                exchange=queue,
+                                routing_key=routing_key)
         self.channel.basic_consume(self._process, queue)
 
     def consume(self):
@@ -159,7 +159,7 @@ def main(args):
 
     consumer = AMQPTopicConsumer(
         queue=args.name,
-        routing_key='*',
+        routing_key='',
         connection_parameters=conn_params)
     consumer.consume()
 
